@@ -87,9 +87,15 @@ print(client.discover_pagination_doc_id())
 
 or pin one with `--doc-id 29554948227445166`.
 
-## More rows than the reported count
+## Result count looks different from the rows read
 
-The Ad Library's first-page `count` can be one higher than the number of unique
+Those are different numbers. `client.result_count` is Meta's own approximate
+total for the search ("~6,300 results"); the number of ads read is capped by
+`--limit` / the top 200 you asked for. The count also drifts during the day and
+differs slightly between `keyword_unordered` and `keyword_exact_phrase`. Capture
+it once per run/day rather than comparing snapshots taken at different times.
+
+The first-page `count` can also be one higher than the number of unique
 `ad_archive_id`s (Meta revisits an entry while paginating). The scraper
 de-duplicates by `ad_archive_id`, so the output is unique.
 

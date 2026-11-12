@@ -82,8 +82,11 @@ uv run main.py search nike --proxy-file proxies.txt --proxy-strategy random -v
 - `--limit 5 --pretty`: an indented JSON array.
 - `--jsonl PATH` / `--csv PATH`: files; stdout stays quiet.
 - Progress (`N ads captured`) and the final count go to stderr, so piping
-  stdout stays clean.
+  stdout stays clean. The final line also includes Meta's approximate result
+  count, e.g. `200 ads from 12 advertisers (Meta reports ~6,777 results)`.
 - CSV list fields are joined with `" | "`; CSV is RFC 4180 quoted.
+- Meta's result count is not added to the rows, so the JSONL/CSV schema is
+  unchanged; read it from the stderr summary or `client.result_count`.
 
 Exit codes: `0` success, `1` scraping error, `2` invalid proxy/cookies options,
 `130` interrupted.

@@ -54,6 +54,8 @@ with AdsLibraryClient() as client:
 | `advertiser(page_id, *, ...)` | `list[dict]` | Ads from one Facebook page |
 | `iter_advertiser_ads(page_id, *, ...)` | iterator of `dict` | Same, streamed |
 | `iter_pages(filters, *, limit=None, max_pages=None, page_size=10)` | iterator of `list[dict]` | Page-at-a-time access |
+| `iter_pages_detailed(filters, *, ...)` | iterator of `AdPage` | Pages plus result count, cursor, page number |
+| `result_count` (property) | `int \| None` | Meta's approximate result count for the latest search |
 | `discover_pagination_doc_id()` | `str \| None` | Re-read the GraphQL `doc_id` from JS bundles |
 | `use_next_proxy()` | `bool` | Manually advance the proxy pool and reset the session |
 | `close()` | `None` | Close the session |
@@ -127,6 +129,42 @@ for page in client.iter_pages(
     # `page` is a list of flattened ads
     ...
 ```
+
+### Result count
+
+Meta shows an approximate number of matching results ("~6,300 results"). The
+client exposes it as a property after the first page is loaded:
+
+```python
+ads = client.search("smooche.com", country="ALL", search_type="keyword_exact_phrase", limit=200)
+print(len(ads), "read,", client.result_count, "reported by Meta")
+```
+
+The count is search-level metadata, not a field on each ad, so JSONL/CSV output
+is unchanged. It is only present on the landing-page payload; pagination reuses
+the value.
+
+For page-by-page access with the count and cursor attached to each page, use
+`iter_pages_detailed` (added in 0.2.0; `iter_pages` is unchanged and still
+yields plain lists):
+
+```python
+from ads_library import AdPage
+
+for page in client.iter_pages_detailed(filters, limit=200):
+    # page: AdPage
+    print(page.number, len(page.ads), page.result_count, page.has_next_page)
+    # or page.ads for the old list
+```
+
+`AdPage` fields: `ads`, `number`, `result_count`, `cursor`, `has_next_page`.
+
+### Compatibility
+
+0.2.0 adds `result_count`, `AdPage` and `iter_pages_detailed`. Existing APIs are
+unchanged: `search()`, `advertiser()`, `iter_ads()`, `iter_advertiser_ads()` and
+`iter_pages()` keep their signatures and types, and ad rows still have the same
+39 fields. Anything that consumed the previous version keeps working.
 
 ### Proxies
 

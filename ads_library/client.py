@@ -32,6 +32,7 @@ from curl_cffi.requests.exceptions import (
 from .parsing import (
     BASE_URL,
     connection_ads,
+    connection_result_count,
     operation_doc_id,
     parse_initial_results,
     parse_json_payload,
@@ -124,6 +125,21 @@ class PageTokens:
     haste_session: str | None = None
     version: str | None = None
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+
+@dataclass
+class AdPage:
+    """One page of ads plus the search metadata Meta returns with it.
+
+    ``iter_pages`` still yields plain ``list[dict]``; use
+    ``iter_pages_detailed`` to get this object instead.
+    """
+
+    ads: list[dict[str, Any]]
+    number: int = 1
+    result_count: int | None = None
+    cursor: str | None = None
+    has_next_page: bool = False
 
 
 @dataclass
@@ -319,6 +335,16 @@ class AdsLibraryClient:
         self._referer: str = ADS_LIBRARY_URL
         self._landing_html: str = ""
         self._request_counter = 0
+        self._result_count: int | None = None
+
+    @property
+    def result_count(self) -> int | None:
+        """Meta's approximate result count for the latest search.
+
+        Only available for searches that reached the landing page; the value is
+        Meta's own figure (the "~6,300 results" text), not the number of ads read.
+        """
+        return self._result_count
 
     # --------------------------------------------------------------- proxying
 
@@ -338,6 +364,7 @@ class AdsLibraryClient:
         self._referer = ADS_LIBRARY_URL
         self._landing_html = ""
         self._request_counter = 0
+        self._result_count = None
 
     def use_next_proxy(self) -> bool:
         """Switch to the next untried proxy. Returns False when the pool is exhausted."""
@@ -419,6 +446,7 @@ class AdsLibraryClient:
         )
 
     def _warmup(self, filters: SearchFilters) -> None:
+        self._result_count = None
         params = filters.url_params()
         self._referer = f"{ADS_LIBRARY_URL}?{urlencode(params)}"
         html = self._get(ADS_LIBRARY_URL, params=params)
@@ -610,6 +638,20 @@ class AdsLibraryClient:
         page_size: int = 10,
     ) -> Iterator[list[dict[str, Any]]]:
         """Yield pages of flattened ads, failing over between proxies if needed."""
+        for page in self.iter_pages_detailed(
+            filters, limit=limit, max_pages=max_pages, page_size=page_size
+        ):
+            yield page.ads
+
+    def iter_pages_detailed(
+        self,
+        filters: SearchFilters,
+        *,
+        limit: int | None = None,
+        max_pages: int | None = None,
+        page_size: int = 10,
+    ) -> Iterator[AdPage]:
+        """Yield pages with their search metadata (result count, cursor, ...)."""
         seen: set[str] = set()
         yielded = 0
         pages = 0
@@ -621,11 +663,13 @@ class AdsLibraryClient:
                         remaining = limit - yielded
                         if remaining <= 0:
                             return
-                        page = page[:remaining]
-                    if not page:
+                        page.ads = page.ads[:remaining]
+                    if not page.ads:
                         continue
-                    yielded += len(page)
+                    yielded += len(page.ads)
                     pages += 1
+                    page.number = pages
+                    page.result_count = self._result_count
                     yield page
                     if limit is not None and yielded >= limit:
                         return
@@ -642,7 +686,7 @@ class AdsLibraryClient:
         filters: SearchFilters,
         seen: set[str],
         page_size: int,
-    ) -> Iterator[list[dict[str, Any]]]:
+    ) -> Iterator[AdPage]:
         if self._tokens is None or self._filters != filters:
             self._warmup(filters)
         filters.page_size = page_size
@@ -651,15 +695,22 @@ class AdsLibraryClient:
         initial = parse_initial_results(self._landing_html)
 
         if initial and (initial.get("edges") or initial.get("page_info")):
+            self._result_count = connection_result_count(initial)
             ads = []
             for ad in connection_ads(initial):
                 if ad["ad_archive_id"] not in seen:
                     seen.add(ad["ad_archive_id"])
                     ads.append(ad)
-            if ads:
-                yield ads
             page_info = initial.get("page_info") or {}
-            cursor = page_info.get("end_cursor") if page_info.get("has_next_page") else None
+            has_next = bool(page_info.get("has_next_page"))
+            cursor = page_info.get("end_cursor") if has_next else None
+            if ads:
+                yield AdPage(
+                    ads=ads,
+                    result_count=self._result_count,
+                    cursor=cursor,
+                    has_next_page=has_next,
+                )
 
         while cursor is not None:
             if self.request_delay:
@@ -674,13 +725,19 @@ class AdsLibraryClient:
                 if key:
                     seen.add(key)
                 ads.append(ad)
-            if ads:
-                yield ads
-
             page_info = connection.get("page_info") or {}
-            if not page_info.get("has_next_page"):
+            has_next = bool(page_info.get("has_next_page"))
+            next_cursor = page_info.get("end_cursor") or None
+            if ads:
+                yield AdPage(
+                    ads=ads,
+                    result_count=self._result_count,
+                    cursor=next_cursor,
+                    has_next_page=has_next,
+                )
+            if not has_next:
                 return
-            cursor = page_info.get("end_cursor") or None
+            cursor = next_cursor
 
     def iter_ads(
         self,

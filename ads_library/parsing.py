@@ -262,3 +262,13 @@ def connection_ads(connection: dict[str, Any] | None) -> list[dict[str, Any]]:
             if isinstance(item, dict):
                 ads.append(flatten_ad(item))
     return ads
+
+
+def connection_result_count(connection: dict[str, Any] | None) -> int | None:
+    """Meta's approximate number of results for a search, when present."""
+    if not connection:
+        return None
+    try:
+        return int(connection.get("count"))
+    except (TypeError, ValueError):
+        return None

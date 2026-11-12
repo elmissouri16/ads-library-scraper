@@ -42,6 +42,7 @@ from ads_library import AdsLibraryClient, AdsLibraryError, RateLimitedError
 with AdsLibraryClient() as client:                 # closes the HTTP session
     ads = client.search("nike", limit=100, country="US")
     print(len(ads), ads[0]["ad_archive_id"], ads[0]["page_name"])
+    print("Meta reports", client.result_count, "matching ads")
 ```
 
 Stream ads instead of materialising a list:
@@ -289,6 +290,12 @@ for ad in ads:
 # iterate pages as they arrive (keeps memory flat)
 for page in client.iter_pages(SearchFilters(query="nike"), limit=200):
     ...
+
+# same, with search metadata attached
+for page in client.iter_pages_detailed(SearchFilters(query="nike"), limit=200):
+    print(page.number, len(page.ads), page.result_count)
+
+print("Meta reports", client.result_count, "matching ads")
 ```
 
 `AdsLibraryClient(...)` also accepts `proxy`, `proxies`, `proxy_strategy`,

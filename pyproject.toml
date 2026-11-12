@@ -1,6 +1,6 @@
 [project]
 name = "ads-library-scraper"
-version = "0.1.0"
+version = "0.2.0"
 description = "Scrape the public Meta Ad Library with curl_cffi"
 readme = "README.md"
 requires-python = ">=3.13"

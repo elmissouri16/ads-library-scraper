@@ -308,8 +308,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(row, ensure_ascii=False))
 
     advertisers = {row.get("page_name") for row in rows if row.get("page_name")}
+    count = client.result_count
+    count_note = f" (Meta reports ~{count:,} results)" if count else ""
     print(
-        f"{len(rows)} ads from {len(advertisers)} advertisers",
+        f"{len(rows)} ads from {len(advertisers)} advertisers{count_note}",
         file=sys.stderr,
     )
     return 0

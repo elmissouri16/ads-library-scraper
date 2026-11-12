@@ -66,6 +66,13 @@ creative variations, so card lists can be long.
 | `gated_type` | str | e.g. `ELIGIBLE` |
 | `ad_archive_id` | str | See identity |
 
+## Search-level metadata
+
+Meta's approximate result count is not a per-ad field. It is exposed as
+`AdsLibraryClient.result_count` and on `AdPage.result_count` from
+`iter_pages_detailed`. The CLI prints it in the stderr summary. Rows are
+unchanged, so consumers of JSONL/CSV see the same 39 fields.
+
 ## Example
 
 ```json

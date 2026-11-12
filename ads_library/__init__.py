@@ -1,6 +1,7 @@
 """Facebook Ad Library scraper built on curl_cffi."""
 
 from .client import (
+    AdPage,
     AdsLibraryClient,
     AdsLibraryError,
     BlockedError,
@@ -13,6 +14,7 @@ from .parsing import flatten_ad
 from .proxies import Proxy, ProxyPool, load_proxies, parse_proxy
 
 __all__ = [
+    "AdPage",
     "AdsLibraryClient",
     "AdsLibraryError",
     "BlockedError",
